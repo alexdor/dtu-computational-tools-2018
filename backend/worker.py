@@ -36,15 +36,6 @@ class Movie(object):
         # 'https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&rvsection=0&titles=Home_Alone&format=json'
         return f"https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={self.title}"
 
-    async def parse_wiki_response(self, response):
-        text = json.loads(response.text)
-        try:
-            if text:
-                pass
-            return text
-        except:
-            traceback.print_exc()
-
 
 class MovieListing(object):
     semaphore = None
@@ -82,8 +73,8 @@ class MovieListing(object):
         try:
             if self.data["continue"]["eicontinue"]:
                 await self.get_movies(self.data["continue"]["eicontinue"])
-        except:
-            traceback.print_exc()
+        except KeyError as err:
+            print(f"Failed to find continue key {err} data: \n {data} ")
         return
 
 
@@ -105,7 +96,7 @@ class Worker(object):
     "-c",
     "--concurrency",
     type=click.INT,
-    default=10,
+    default=20,
     help="Number of concurrent connections.",
 )
 def main(concurrency):
