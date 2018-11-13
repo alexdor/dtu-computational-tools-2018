@@ -14,8 +14,8 @@ class Movie(object):
     loop = None
 
     def __init__(self, page_id, title):
-        assert isinstance(title, str)
-        if any(map(lambda el: el is None, [self.semaphore, self.loop])):
+        self.loop = asyncio.get_event_loop()
+        if any(map(lambda el: el is None, [self.semaphore])):
             raise AttributeError("Initialize Class-wide variables!")
         self.title = title
         self.page_id = page_id
@@ -52,7 +52,8 @@ class MovieListing(object):
     eicontinue = None
 
     def __init__(self):
-        if any(map(lambda el: el is None, [self.semaphore, self.loop])):
+        self.loop = asyncio.get_event_loop()
+        if any(map(lambda el: el is None, [self.semaphore])):
             raise AttributeError("Initialize Class-wide variables!")
         self.session = Session()
 
@@ -68,8 +69,8 @@ class MovieListing(object):
         async with self.semaphore:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self.get_movie_listing_url()) as resp:
-                    data = await resp.text()
-        self.data = await self.parse_wiki_response(data)
+                    data = json.loads(await resp.text())
+        self.data = data
         self.targets = [
             Movie(entry["pageid"], entry["title"])
             for entry in self.data["query"]["embeddedin"]
@@ -80,28 +81,17 @@ class MovieListing(object):
         self.session.commit()
         try:
             if self.data["continue"]["eicontinue"]:
-                await MovieListing().get_movies(self.data["continue"]["eicontinue"])
+                await self.get_movies(self.data["continue"]["eicontinue"])
         except:
             traceback.print_exc()
         return
 
-    async def parse_wiki_response(self, response):
-        text = json.loads(response)
-        try:
-            if text:
-                pass
-            return text
-        except:
-            traceback.print_exc()
-
 
 class Worker(object):
-    def __init__(self, loop, concurrency=None):
+    def __init__(self, concurrency=None):
         MovieListing.semaphore = asyncio.Semaphore(concurrency)
-        MovieListing.loop = loop
         Movie.semaphore = asyncio.Semaphore(concurrency)
-        Movie.loop = loop
-        self.loop = loop
+        self.loop = asyncio.get_event_loop()
 
     async def start(self):
         # entries = await MovieListing().get_movies()
@@ -119,9 +109,8 @@ class Worker(object):
     help="Number of concurrent connections.",
 )
 def main(concurrency):
-    loop = asyncio.get_event_loop()
-    w = Worker(loop, concurrency)
-    loop.run_until_complete(w.start())
+    w = Worker(concurrency)
+    asyncio.get_event_loop().run_until_complete(w.start())
 
 
 if __name__ == "__main__":
