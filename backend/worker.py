@@ -34,7 +34,7 @@ class Movie(object):
 
     def get_movie_url(self):
         # 'https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&rvsection=0&titles=Home_Alone&format=json'
-        return f"https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&rvsection=0&format=json&titles={self.title}"
+        return f"https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={self.title}"
 
     async def parse_wiki_response(self, response):
         text = json.loads(response.text)
