@@ -1,13 +1,21 @@
 import asyncio
+import heapq
 import json
 import logging
 import os
+import re
 import traceback
+from math import log
 
 import aiohttp
 import click
+import nltk
+from nltk import word_tokenize
+from nltk.corpus import stopwords
 
 from db import MovieModel, Session
+
+stop = stopwords.words("english")
 
 
 class Movie(object):
@@ -113,6 +121,61 @@ class Data_Cleanup(object):
         print(self.movies_that_revision_failed)
 
 
+plot_str = "==Plot=="
+
+
+class Parse_Data(object):
+    session = Session()
+
+    async def start(self):
+        for movie in self.session.query(MovieModel).all():
+            res = movie.response
+            tmp = re.search(r"==\s?Plot\s?==.*?[^=]==[^=]", res)
+            if tmp:
+                tmp = tmp[0]
+                tmp = re.sub(r"==\s?Plot\s?==", "", tmp)
+                movie.plot = tmp
+                text = tmp.lower()
+                text = re.sub(r"[^\w\s]", "", text)
+                text = " ".join([word for word in text.split() if word not in stop])
+                text = re.sub(r"rt\s", "", text)
+                text = re.sub(r"rt\t", "", text)
+                text = re.sub(r"\d+", "", text)
+                movie.tokenized_plot = ",".join(list(set(word_tokenize(text))))
+            else:
+                movie.plot = None
+                movie.tokenized_plot = None
+            tmp = re.search(r"released\s*=\s*.*?\\n", res)
+            if tmp:
+                tmp = re.search(r"\d{4}", tmp[0])
+                if tmp:
+                    movie.year = tmp[0]
+                else:
+                    movie.year = None
+            else:
+                movie.year = None
+            tmp = re.search(r"budget\s*=.*?\\n", res)
+            if tmp:
+                tmp = tmp[0][tmp[0].find("=") + 1 :]
+                index = tmp.find("<ref")
+                if index > -1:
+                    tmp = tmp[:index]
+                index = tmp.find("<!--")
+                if index > -1:
+                    tmp = tmp[:index]
+                index = tmp.find("(est")
+                if index > -1:
+                    tmp = tmp[:index]
+                index = tmp.find('("est')
+                if index > -1:
+                    tmp = tmp[:index]
+                tmp = tmp.replace("\r", "").replace("\n", "")
+                movie.budget = tmp.strip()
+            else:
+                movie.budget = None
+        self.session.commit()
+
+
 class Worker(object):
     def __init__(self, concurrency=None):
         MovieListing.semaphore = asyncio.Semaphore(concurrency)
@@ -124,7 +187,8 @@ class Worker(object):
         # self.targets = [Movie(entry) for entry in entries]
         # tasks = [target.start() for target in self.targets]
         # await MovieListing().get_movies()
-        await Data_Cleanup().start()
+        # await Data_Cleanup().start()
+        await Parse_Data().start()
 
 
 @click.command()
@@ -132,7 +196,7 @@ class Worker(object):
     "-c",
     "--concurrency",
     type=click.INT,
-    default=10,
+    default=15,
     help="Number of concurrent connections.",
 )
 def main(concurrency):
