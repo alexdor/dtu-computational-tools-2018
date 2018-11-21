@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 import traceback
 
@@ -20,21 +21,24 @@ class Movie(object):
         self.title = title
         self.page_id = page_id
 
-    async def start(self):
-        return await self.parse()
+    async def start(self, id=None):
+        return await self.parse(id)
 
-    async def parse(self):
+    async def parse(self, id):
         async with self.semaphore:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self.get_movie_url()) as resp:
                     data = await resp.text()
-        return MovieModel(
+        model = MovieModel(
             title=self.title, page_id=self.page_id, response=json.dumps(data)
         )
+        if id:
+            model.id = id
+        return model
 
     def get_movie_url(self):
         # 'https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&rvsection=0&titles=Home_Alone&format=json'
-        return f"https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={self.title}"
+        return f"https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&format=json&pageids={self.page_id}"
 
 
 class MovieListing(object):
@@ -78,6 +82,37 @@ class MovieListing(object):
         return
 
 
+class Data_Cleanup(object):
+    session = Session()
+    movies_that_json_failed = []
+    movies_that_revision_failed = []
+
+    async def start(self):
+        for movie in self.session.query(MovieModel).all():
+            try:
+                tmp = json.loads(json.loads(movie.response))
+            except:
+                self.movies_that_json_failed.append(movie)
+                continue
+            try:
+                movie.response = json.dumps(
+                    tmp["query"]["pages"][list(tmp["query"]["pages"])[0]]["revisions"][
+                        0
+                    ]["*"]
+                )
+            except KeyError:
+                tmp = await Movie(movie.page_id, movie.title).start()
+                tmp = json.loads(json.loads(tmp.response))
+                movie.response = json.dumps(
+                    tmp["query"]["pages"][list(tmp["query"]["pages"])[0]]["revisions"][
+                        0
+                    ]["*"]
+                )
+                self.movies_that_revision_failed.append(movie)
+        self.session.commit()
+        print(self.movies_that_revision_failed)
+
+
 class Worker(object):
     def __init__(self, concurrency=None):
         MovieListing.semaphore = asyncio.Semaphore(concurrency)
@@ -88,7 +123,8 @@ class Worker(object):
         # entries = await MovieListing().get_movies()
         # self.targets = [Movie(entry) for entry in entries]
         # tasks = [target.start() for target in self.targets]
-        await MovieListing().get_movies()
+        # await MovieListing().get_movies()
+        await Data_Cleanup().start()
 
 
 @click.command()
@@ -96,7 +132,7 @@ class Worker(object):
     "-c",
     "--concurrency",
     type=click.INT,
-    default=20,
+    default=10,
     help="Number of concurrent connections.",
 )
 def main(concurrency):
