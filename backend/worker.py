@@ -133,6 +133,8 @@ class Parse_Data(object):
                 tmp = re.sub(r"==\s?Plot\s?==", "", tmp)
                 movie.plot = tmp
                 text = tmp.lower()
+                text = re.sub(r"<ref>.*?</ref>", "", text)
+                text = re.sub(r"http.*?\s", "", text)
                 text = re.sub(r"[^\w\s]", "", text)
                 text = " ".join([word for word in text.split() if word not in stop])
                 text = re.sub(r"rt\s", "", text)
