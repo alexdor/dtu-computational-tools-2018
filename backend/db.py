@@ -18,11 +18,20 @@ class MovieModel(Base):
     plot = Column(String)
     response = Column(String)
     tokenized_plot = Column(String)
+    unique_tokenized_plot = Column(String)
     year = Column(Integer, index=True)
     budget = Column(String, index=True)
 
     def __repr__(self):
         return f"<MovieModel(title={self.title}, pageID={self.page_id})>"
+
+
+class WordMoviesModel(Base):
+    __tablename__ = "word_movies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    movie_ids = Column(String, nullable=False, index=True)
+    word = Column(String, unique=True, nullable=False, index=True)
 
 
 Base.metadata.create_all(engine)

@@ -13,7 +13,7 @@ import nltk
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 
-from db import MovieModel, Session
+from db import MovieModel, Session, WordMoviesModel
 
 stop = stopwords.words("english")
 
@@ -121,8 +121,23 @@ class Data_Cleanup(object):
         print(self.movies_that_revision_failed)
 
 
+initial_cleanup_re = re.compile(
+    r"""\[\[(File|Category):[\s\S]+\]\]|
+        \[\[[^|^\]]+\||
+        \[\[|
+        \]\]|
+        \'{2,5}|
+        (<s>|<!--)[\s\S]+(</s>|-->)|
+        {{[\s\S\n]+?}}|
+        <ref>[\s\S]+</ref>|
+        ={1,6}""",
+    re.VERBOSE,
+)
+
+
 class Parse_Data(object):
     session = Session()
+    word_movies_dict = {}
 
     async def start(self):
         for movie in self.session.query(MovieModel).all():
@@ -131,19 +146,29 @@ class Parse_Data(object):
             if tmp:
                 tmp = tmp[0]
                 tmp = re.sub(r"==\s?Plot\s?==", "", tmp)
+                tmp = initial_cleanup_re.sub(" ", tmp)
                 movie.plot = tmp
                 text = tmp.lower()
-                text = re.sub(r"<ref>.*?</ref>", "", text)
-                text = re.sub(r"http.*?\s", "", text)
-                text = re.sub(r"[^\w\s]", "", text)
+                text = re.sub(r"<ref>.*?</ref>", " ", text)
+                text = re.sub(r"\[\[File.*?\]\]", " ", text)
+                text = re.sub(r"http.*?\s", " ", text)
+                text = text.replace("\\r", " ").replace("\\n", " ")
+                text = re.sub(r"[^\w\s]", " ", text)
+                text = re.sub(r"rt\s", " ", text)
+                text = re.sub(r"rt\t", " ", text)
+                text = re.sub(r"\d+", " ", text)
                 text = " ".join([word for word in text.split() if word not in stop])
-                text = re.sub(r"rt\s", "", text)
-                text = re.sub(r"rt\t", "", text)
-                text = re.sub(r"\d+", "", text)
-                movie.tokenized_plot = ",".join(word_tokenize(text))
+                tokenized_text = word_tokenize(text)
+                movie.tokenized_plot = ",".join(tokenized_text)
+                movie.unique_tokenized_plot = ",".join(list(set(tokenized_text)))
+                for word in tokenized_text:
+                    tmp = self.word_movies_dict.get(word, [])
+                    tmp.append(movie.id)
+                    self.word_movies_dict[word] = tmp
             else:
                 movie.plot = None
                 movie.tokenized_plot = None
+                movie.unique_tokenized_plot = None
             tmp = re.search(r"released\s*=\s*.*?\\n", res)
             if tmp:
                 tmp = re.search(r"\d{4}", tmp[0])
@@ -168,10 +193,25 @@ class Parse_Data(object):
                 index = tmp.find('("est')
                 if index > -1:
                     tmp = tmp[:index]
-                tmp = tmp.replace("\r", "").replace("\n", "")
                 movie.budget = tmp.strip()
             else:
                 movie.budget = None
+        self.session.commit()
+        english_words = ""
+        with open("words.txt") as word_file:
+            english_words = set(word.strip().lower() for word in word_file)
+        self.session.add_all(
+            [
+                WordMoviesModel(
+                    movie_ids=",".join(
+                        [str(num) for num in self.word_movies_dict[word]]
+                    ),
+                    word=word,
+                )
+                for word in self.word_movies_dict.keys()
+                if word and ((len(word) > 2) or (word in english_words))
+            ]
+        )
         self.session.commit()
 
 
@@ -195,7 +235,7 @@ class Worker(object):
     "-c",
     "--concurrency",
     type=click.INT,
-    default=15,
+    default=12,
     help="Number of concurrent connections.",
 )
 def main(concurrency):
