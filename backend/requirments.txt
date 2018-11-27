@@ -1,5 +1,6 @@
 SQLalchemy==1.2.14
-aiohttp==3.4.4
+aiohttp==3.4.3
+asyncio=3.4.3
 aiodns==1.1.1
 sqlalchemy-aio==0.14.0
 click==7.0
