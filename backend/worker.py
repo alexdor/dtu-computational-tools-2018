@@ -121,9 +121,6 @@ class Data_Cleanup(object):
         print(self.movies_that_revision_failed)
 
 
-plot_str = "==Plot=="
-
-
 class Parse_Data(object):
     session = Session()
 
@@ -141,7 +138,7 @@ class Parse_Data(object):
                 text = re.sub(r"rt\s", "", text)
                 text = re.sub(r"rt\t", "", text)
                 text = re.sub(r"\d+", "", text)
-                movie.tokenized_plot = ",".join(list(set(word_tokenize(text))))
+                movie.tokenized_plot = ",".join(word_tokenize(text))
             else:
                 movie.plot = None
                 movie.tokenized_plot = None
