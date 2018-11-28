@@ -4,3 +4,4 @@ asyncio=3.4.3
 aiodns==1.1.1
 sqlalchemy-aio==0.14.0
 click==7.0
+gensim==3.6.0

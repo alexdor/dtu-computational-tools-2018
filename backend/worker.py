@@ -12,7 +12,8 @@ import click
 import nltk
 from nltk import word_tokenize
 from nltk.corpus import stopwords
-
+import gensim
+from gensim.models import Word2Vec
 from db import MovieModel, Session, WordMoviesModel
 
 stop = stopwords.words("english")
@@ -214,6 +215,22 @@ class Parse_Data(object):
         )
         self.session.commit()
 
+class Create_Models(object):
+    session = Session()
+
+    def start(self):
+        sentences = [movie.tokenized_plot.split(",") for movie in self.session.query(MovieModel).filter(MovieModel.tokenized_plot != None ).all()]
+        cbow = gensim.models.Word2Vec(sentences, min_count = 1,
+                              size = 100, window = 5)
+
+        #create skip-grams model
+        skip_grams = gensim.models.Word2Vec(sentences, min_count = 1, size = 100,
+                                                    window = 5, sg = 1)
+
+        cbow.wv.save_word2vec_format('cbow.bin')
+
+        skip_grams.wv.save_word2vec_format('skip_grams.bin')
+
 
 class Worker(object):
     def __init__(self, concurrency=None):
@@ -227,7 +244,8 @@ class Worker(object):
         # tasks = [target.start() for target in self.targets]
         # await MovieListing().get_movies()
         # await Data_Cleanup().start()
-        await Parse_Data().start()
+        # await Parse_Data().start()
+        Create_Models().start()
 
 
 @click.command()
