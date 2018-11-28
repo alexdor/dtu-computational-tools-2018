@@ -8,14 +8,27 @@ import click
 import gensim
 import requests
 from gensim.models import KeyedVectors, Word2Vec
+from sqlalchemy import func
 
 from db import MovieModel, Session, WordMoviesModel
+from KeyWordBloomFilter import KeyWordBloomFilter
 
-inputArgs = ["dog", "detective", "volcano"]
+inputArgs = ["gun", "explosion", "drugs"]
+
+p = 0.0001
 
 
 class API(object):
     session = Session()
+    word_count = int(Session().query(WordMoviesModel).count())
+
+    def __init__(self):
+        self.bloom_filter = KeyWordBloomFilter(p, self.word_count)
+        # bloomFilter = KeyWordBloomFilter(p=p, n=self.word_count)
+        [
+            self.bloom_filter.train(word.word)
+            for word in self.session.query(WordMoviesModel).all()
+        ]
 
     async def get_synonyms(self, inputArgs):
         synonymList = [list() for i in inputArgs]
@@ -42,7 +55,7 @@ class API(object):
                                         synonymList[position].append(w["text"])
 
         # load the desired model
-        cbow = KeyedVectors.load_word2vec_format("skip_grams.bin", binary=False)
+        cbow = KeyedVectors.load_word2vec_format("cbow.bin", binary=False)
 
         # find synonyms from embedded model
         for i in range(len(synonymList)):
@@ -50,51 +63,52 @@ class API(object):
                 if len(word[0].split(" ")) == 1:
                     synonymList[i].append(word[0])
         word_list = [word for group in synonymList for word in group] + inputArgs
+        word_list = [word for word in word_list if self.bloom_filter.classify(word)]
         return await self.scoring(synonymList, set(word_list), inputArgs)
 
     async def scoring(self, synonymList, word_list, original_args):
 
         # make dictionary from the sql call
-        wordDict = {}
+        word_dict = {}
         for entry in (
             self.session.query(WordMoviesModel)
             .filter(WordMoviesModel.word.in_(word_list))
             .all()
         ):
-            wordDict[entry.word] = entry.movie_ids.split(",")
+            word_dict[entry.word] = entry.movie_ids.split(",")
 
         # loop through the dictionary and sum the movies
-        movieScores = {}
+        movie_scores = {}
         for group in range(len(synonymList)):
             for word in synonymList[group]:
-                movies = wordDict.get(word, False)
+                movies = word_dict.get(word, False)
                 if not movies:
                     continue
                 for movie in movies:
-                    if movieScores.get(movie):
-                        movieScores[movie][group] += 1
+                    if movie_scores.get(movie):
+                        movie_scores[movie][group] += 1
                     else:
-                        movieScores[movie] = [0, 0, 0]
-                        movieScores[movie][group] = 1
-                    movieScores[movie][group] += 1
+                        movie_scores[movie] = [0, 0, 0]
+                        movie_scores[movie][group] = 1
+                    movie_scores[movie][group] += 1
                 else:
-                    movieScores[movie] = [0, 0, 0]
-                    movieScores[movie][group] = 1
+                    movie_scores[movie] = [0, 0, 0]
+                    movie_scores[movie][group] = 1
 
-        for movie in movieScores:
+        for movie in movie_scores:
             original_syn_count = 0
             for word in original_args:
-                if movie in wordDict[word]:
+                if movie in word_dict[word]:
                     original_syn_count += 1
-            movieScores[movie] = (
-                math.log(movieScores[movie][0] + 0.00001, 1.5)
-                + math.log(movieScores[movie][1] + 0.00001, 1.5)
-                + math.log(movieScores[movie][2] + 0.00001, 1.5)
+            movie_scores[movie] = (
+                math.log(movie_scores[movie][0] + 0.00001, 1.5)
+                + math.log(movie_scores[movie][1] + 0.00001, 1.5)
+                + math.log(movie_scores[movie][2] + 0.00001, 1.5)
                 + 5 * original_syn_count
             )
 
         print("Based on your inputs, we recommend the following:", "\n")
-        movies = sorted(movieScores, key=lambda k: movieScores[k], reverse=True)[:10]
+        movies = sorted(movie_scores, key=lambda k: movie_scores[k], reverse=True)[:10]
         q = self.session.query(MovieModel).filter(MovieModel.id.in_(movies))
         movie_map = {movie.id: movie.title for movie in q}
         [print(movie_map[int(id)]) for id in movies]
