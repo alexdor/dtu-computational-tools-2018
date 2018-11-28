@@ -4,6 +4,7 @@ import math
 import os
 import sqlite3
 import sys
+import warnings
 from timeit import default_timer as timer
 
 import aiohttp
@@ -20,6 +21,7 @@ import ujson as json
 from db import MovieModel, Session, WordMoviesModel
 from KeyWordBloomFilter import KeyWordBloomFilter
 
+warnings.filterwarnings("ignore")
 p = 0.0001
 
 
