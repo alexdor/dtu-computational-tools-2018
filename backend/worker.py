@@ -9,11 +9,12 @@ from math import log
 
 import aiohttp
 import click
+import gensim
 import nltk
+from gensim.models import Word2Vec
 from nltk import word_tokenize
 from nltk.corpus import stopwords
-import gensim
-from gensim.models import Word2Vec
+
 from db import MovieModel, Session, WordMoviesModel
 
 stop = stopwords.words("english")
@@ -215,21 +216,26 @@ class Parse_Data(object):
         )
         self.session.commit()
 
+
 class Create_Models(object):
     session = Session()
 
     def start(self):
-        sentences = [movie.tokenized_plot.split(",") for movie in self.session.query(MovieModel).filter(MovieModel.tokenized_plot != None ).all()]
-        cbow = gensim.models.Word2Vec(sentences, min_count = 1,
-                              size = 100, window = 5)
+        sentences = [
+            movie.tokenized_plot.split(",")
+            for movie in self.session.query(MovieModel)
+            .filter(MovieModel.tokenized_plot != None)
+            .all()
+        ]
+        cbow = gensim.models.Word2Vec(sentences, min_count=1, size=100, window=5)
 
-        #create skip-grams model
-        skip_grams = gensim.models.Word2Vec(sentences, min_count = 1, size = 100,
-                                                    window = 5, sg = 1)
+        # create skip-grams model
+        skip_grams = gensim.models.Word2Vec(
+            sentences, min_count=1, size=100, window=5, sg=1
+        )
+        cbow.save_word2vec_format("cbow.bin")
 
-        cbow.wv.save_word2vec_format('cbow.bin')
-
-        skip_grams.wv.save_word2vec_format('skip_grams.bin')
+        skip_grams.save_word2vec_format("skip_grams.bin")
 
 
 class Worker(object):

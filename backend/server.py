@@ -2,7 +2,10 @@ import asyncio
 import heapq
 import json
 import math
+import os
 import sqlite3
+import sys
+from timeit import default_timer as timer
 
 import click
 import gensim
@@ -23,6 +26,16 @@ class API(object):
     word_count = int(Session().query(WordMoviesModel).count())
 
     def __init__(self):
+        try:
+            self.APP_ID = os.environ["APP_ID"]
+        except KeyError:
+            print("Please set the environment variable APP_ID")
+            sys.exit(1)
+        try:
+            self.APP_KEY = os.environ["APP_KEY"]
+        except KeyError:
+            print("Please set the environment variable APP_KEY")
+            sys.exit(1)
         self.bloom_filter = KeyWordBloomFilter(p, self.word_count)
         # bloomFilter = KeyWordBloomFilter(p=p, n=self.word_count)
         [
@@ -36,15 +49,10 @@ class API(object):
         # grab synonyms from API
         for position in range(len(inputArgs)):
             r = requests.get(
-                "https://od-api.oxforddictionaries.com:443/api/v1/entries/en/"
-                + inputArgs[position]
-                + "/synonyms",
-                headers={
-                    "app_id": "a76c92b5",
-                    "app_key": "107c3736bfdc71a084306ecb73aafa26",
-                },
+                f"https://od-api.oxforddictionaries.com:443/api/v1/entries/en/{inputArgs[position]}/synonyms",
+                headers={"app_id": self.APP_ID, "app_key": self.APP_KEY},
             )
-            if r.status_code >= 200 and r.status_code <= 299:
+            if r.ok:
                 synonyms = json.loads(r.text)
                 for i in synonyms["results"]:
                     for j in i["lexicalEntries"]:
@@ -59,7 +67,7 @@ class API(object):
 
         # find synonyms from embedded model
         for i in range(len(synonymList)):
-            for word in cbow.wv.most_similar(inputArgs[i]):
+            for word in cbow.most_similar(inputArgs[i]):
                 if len(word[0].split(" ")) == 1:
                     synonymList[i].append(word[0])
         word_list = [word for group in synonymList for word in group] + inputArgs
@@ -85,15 +93,9 @@ class API(object):
                 if not movies:
                     continue
                 for movie in movies:
-                    if movie_scores.get(movie):
-                        movie_scores[movie][group] += 1
-                    else:
+                    if not movie_scores.get(movie):
                         movie_scores[movie] = [0, 0, 0]
-                        movie_scores[movie][group] = 1
                     movie_scores[movie][group] += 1
-                else:
-                    movie_scores[movie] = [0, 0, 0]
-                    movie_scores[movie][group] = 1
 
         for movie in movie_scores:
             original_syn_count = 0
@@ -126,7 +128,11 @@ class API(object):
 )
 def main(words):
     words = [arg.strip() for arg in words.split(",")]
-    asyncio.get_event_loop().run_until_complete(API().get_synonyms(words))
+    api = API()
+    # start = timer()
+    asyncio.get_event_loop().run_until_complete(api.get_synonyms(words))
+    # end = timer()
+    # print(end - start)
 
 
 if __name__ == "__main__":
