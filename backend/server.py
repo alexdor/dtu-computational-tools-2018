@@ -47,6 +47,9 @@ class API(object):
         ]
 
     async def get_synonyms_from_external_service(self, arg):
+        value = await self.cache.get(arg)
+        if value:
+            return value
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"https://od-api.oxforddictionaries.com:443/api/v1/entries/en/{arg}/synonyms",
@@ -72,6 +75,7 @@ class API(object):
                                         for w in v["synonyms"]:
                                             if len(w["text"].split(" ")) == 1:
                                                 tmp.append(w["text"])
+                    asyncio.ensure_future(self.cache.set(arg, tmp))
                     return tmp
 
     async def get_synonyms(self, input_args):
