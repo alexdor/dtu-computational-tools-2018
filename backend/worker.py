@@ -245,12 +245,9 @@ class Worker(object):
         self.loop = asyncio.get_event_loop()
 
     async def start(self):
-        # entries = await MovieListing().get_movies()
-        # self.targets = [Movie(entry) for entry in entries]
-        # tasks = [target.start() for target in self.targets]
-        # await MovieListing().get_movies()
-        # await Data_Cleanup().start()
-        # await Parse_Data().start()
+        await MovieListing().get_movies()
+        await Data_Cleanup().start()
+        await Parse_Data().start()
         Create_Models().start()
 
 
