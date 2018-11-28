@@ -34,13 +34,11 @@ class API(object):
         try:
             self.APP_ID = os.environ["APP_ID"]
         except KeyError:
-            print("Please set the environment variable APP_ID")
-            sys.exit(1)
+            self.APP_ID = "a76c92b5"
         try:
             self.APP_KEY = os.environ["APP_KEY"]
         except KeyError:
-            print("Please set the environment variable APP_KEY")
-            sys.exit(1)
+            self.APP_KEY = "107c3736bfdc71a084306ecb73aafa26"
         self.bloom_filter = KeyWordBloomFilter(p, self.word_count)
         # bloomFilter = KeyWordBloomFilter(p=p, n=self.word_count)
         [
