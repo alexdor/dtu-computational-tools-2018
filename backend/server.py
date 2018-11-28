@@ -6,6 +6,7 @@ import sqlite3
 import sys
 from timeit import default_timer as timer
 
+import aiohttp
 import click
 import gensim
 import requests
@@ -19,8 +20,6 @@ import ujson as json
 from db import MovieModel, Session, WordMoviesModel
 from KeyWordBloomFilter import KeyWordBloomFilter
 
-inputArgs = ["gun", "explosion", "drugs"]
-
 p = 0.0001
 
 
@@ -28,6 +27,8 @@ class API(object):
     session = Session()
     cache = SimpleMemoryCache()
     word_count = int(Session().query(WordMoviesModel).count())
+    # load the desired model
+    cbow = KeyedVectors.load_word2vec_format("cbow.bin", binary=False)
 
     def __init__(self):
         try:
@@ -47,41 +48,47 @@ class API(object):
             for word in self.session.query(WordMoviesModel).all()
         ]
 
+    async def get_synonyms_from_external_service(self, arg):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://od-api.oxforddictionaries.com:443/api/v1/entries/en/{arg}/synonyms",
+                headers={"app_id": self.APP_ID, "app_key": self.APP_KEY},
+            ) as resp:
+                tmp = []
+                # Find synonyms in embedded model
+                try:
+                    tmp = [
+                        word[0]
+                        for word in self.cbow.most_similar(arg)
+                        if len(word[0].split(" ")) == 1
+                    ]
+                except KeyError:
+                    tmp = []
+                finally:
+                    if resp.status == 200:
+                        synonyms = await resp.json()
+                        for i in synonyms["results"]:
+                            for j in i["lexicalEntries"]:
+                                for k in j["entries"]:
+                                    for v in k["senses"]:
+                                        for w in v["synonyms"]:
+                                            if len(w["text"].split(" ")) == 1:
+                                                tmp.append(w["text"])
+                    return tmp
+
     async def get_synonyms(self, input_args):
         input_args = sorted(list(set(input_args)))
         req_id = ",".join(input_args)
         value = await self.cache.get(req_id)
         if value:
             return value
-        synonym_list = [list() for i in input_args]
 
         # grab synonyms from API
-        for position in range(len(input_args)):
-            r = requests.get(
-                f"https://od-api.oxforddictionaries.com:443/api/v1/entries/en/{input_args[position]}/synonyms",
-                headers={"app_id": self.APP_ID, "app_key": self.APP_KEY},
-            )
-            if r.ok:
-                synonyms = json.loads(r.text)
-                for i in synonyms["results"]:
-                    for j in i["lexicalEntries"]:
-                        for k in j["entries"]:
-                            for v in k["senses"]:
-                                for w in v["synonyms"]:
-                                    if len(w["text"].split(" ")) == 1:
-                                        synonym_list[position].append(w["text"])
-
-        # load the desired model
-        cbow = KeyedVectors.load_word2vec_format("cbow.bin", binary=False)
-
-        # find synonyms from embedded model
-        for i in range(len(synonym_list)):
-            try:
-                for word in cbow.most_similar(input_args[i]):
-                    if len(word[0].split(" ")) == 1:
-                        synonym_list[i].append(word[0])
-            except KeyError:
-                pass
+        tasks = [
+            self.get_synonyms_from_external_service(input_arg)
+            for input_arg in input_args
+        ]
+        synonym_list = await asyncio.gather(*tasks)
 
         word_list = [word for group in synonym_list for word in group]
         word_list = set(
@@ -162,12 +169,12 @@ def main(words):
     api = API()
     if words:
         words = [arg.strip() for arg in words.split(",")]
-        # start = timer()
+        start = timer()
         asyncio.get_event_loop().run_until_complete(
             api.handle_command_line_execution(words)
         )
-        # end = timer()
-        # print(end - start)
+        end = timer()
+        print(end - start)
     else:
         app = web.Application()
         app.add_routes([web.get("/", api.handle_request)])
