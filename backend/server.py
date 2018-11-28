@@ -171,12 +171,12 @@ def main(words):
     api = API()
     if words:
         words = [arg.strip() for arg in words.split(",")]
-        start = timer()
+        # start = timer()
         asyncio.get_event_loop().run_until_complete(
             api.handle_command_line_execution(words)
         )
-        end = timer()
-        print(end - start)
+        # end = timer()
+        # print(end - start)
     else:
         app = web.Application()
         app.add_routes([web.get("/", api.handle_request)])
