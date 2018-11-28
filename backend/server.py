@@ -1,6 +1,5 @@
 import asyncio
 import heapq
-import json
 import math
 import os
 import sqlite3
@@ -10,10 +9,13 @@ from timeit import default_timer as timer
 import click
 import gensim
 import requests
+from aiocache import SimpleMemoryCache, cached
+from aiocache.serializers import JsonSerializer
 from aiohttp import web
 from gensim.models import KeyedVectors, Word2Vec
 from sqlalchemy import func
 
+import ujson as json
 from db import MovieModel, Session, WordMoviesModel
 from KeyWordBloomFilter import KeyWordBloomFilter
 
@@ -24,6 +26,7 @@ p = 0.0001
 
 class API(object):
     session = Session()
+    cache = SimpleMemoryCache()
     word_count = int(Session().query(WordMoviesModel).count())
 
     def __init__(self):
@@ -45,6 +48,11 @@ class API(object):
         ]
 
     async def get_synonyms(self, input_args):
+        input_args = sorted(list(set(input_args)))
+        req_id = ",".join(input_args)
+        value = await self.cache.get(req_id)
+        if value:
+            return value
         synonym_list = [list() for i in input_args]
 
         # grab synonyms from API
@@ -68,9 +76,13 @@ class API(object):
 
         # find synonyms from embedded model
         for i in range(len(synonym_list)):
-            for word in cbow.most_similar(input_args[i]):
-                if len(word[0].split(" ")) == 1:
-                    synonym_list[i].append(word[0])
+            try:
+                for word in cbow.most_similar(input_args[i]):
+                    if len(word[0].split(" ")) == 1:
+                        synonym_list[i].append(word[0])
+            except KeyError:
+                pass
+
         word_list = [word for group in synonym_list for word in group]
         word_list = set(
             [
@@ -103,7 +115,7 @@ class API(object):
         for movie in movie_scores:
             original_syn_count = 0
             for word in input_args:
-                if movie in word_dict[word]:
+                if movie in word_dict.get(word, []):
                     original_syn_count += 1
             movie_scores[movie] = (
                 math.log(movie_scores[movie][0] + 0.00001, 1.5)
@@ -115,7 +127,9 @@ class API(object):
         movies = sorted(movie_scores, key=lambda k: movie_scores[k], reverse=True)[:10]
         q = self.session.query(MovieModel).filter(MovieModel.id.in_(movies))
         movie_map = {movie.id: movie.title for movie in q}
-        return [movie_map[int(id)] for id in movies]
+        res = [movie_map[int(id)] for id in movies]
+        asyncio.ensure_future(self.cache.set(req_id, res))
+        return res
 
     async def handle_command_line_execution(self, words):
         res = await self.get_synonyms(words)
@@ -157,7 +171,6 @@ def main(words):
     else:
         app = web.Application()
         app.add_routes([web.get("/", api.handle_request)])
-
         web.run_app(app)
 
 
