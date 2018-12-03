@@ -1,7 +1,7 @@
 
 [build]
   base    = "frontend"
-  publish = "frontend/public"
+  publish = "public"
   command = "yarn build"
 
 [[redirects]]
