@@ -41,7 +41,9 @@ class App extends PureComponent {
     this.setState({ loading: true });
 
     fetch(
-      `http://localhost:8080/api/v1/detailed_movies/?words=${tmp.join(",")}`
+      `https://whichflick-api.swaco.io/api/v1/detailed_movies/?words=${tmp.join(
+        ","
+      )}`
     )
       .then(async response => {
         if (!response.ok) {
