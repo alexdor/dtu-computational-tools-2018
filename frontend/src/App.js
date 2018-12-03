@@ -2,6 +2,12 @@ import './App.css';
 import 'react-s-alert/dist/s-alert-css-effects/slide.css';
 import 'react-s-alert/dist/s-alert-default.css';
 
+import Button from 'muicss/lib/react/button';
+import Col from 'muicss/lib/react/col';
+import Container from 'muicss/lib/react/container';
+import Form from 'muicss/lib/react/form';
+import Input from 'muicss/lib/react/input';
+import Row from 'muicss/lib/react/row';
 import React, { PureComponent } from 'react';
 import Alert from 'react-s-alert';
 
@@ -67,38 +73,51 @@ class App extends PureComponent {
     const { loading, text, data } = this.state;
     return (
       <div className="App">
-        <h1>Which Flick</h1>
-        <form onSubmit={this.getResults}>
-          <fieldset>
-            <input
-              id="input"
-              placeholder="Enter 3 keywords and we'll get you a movie : )"
-              defaultValue={text}
-              onChange={this.handleChange}
-            />
-            <button className="button button-outline" type="submit">
-              Search
-            </button>
-          </fieldset>
-        </form>
-        {loading ? (
-          <Spinner />
-        ) : (
-          <div>
-            {data &&
-              data.map((movie, index) => (
-                <Movie
-                  key={movie.id}
-                  index={index + 1}
-                  title={movie.title}
-                  year={movie.year}
-                  page_id={movie.page_id}
+        <Container>
+          <h1>Which Flick</h1>
+          <Form onSubmit={this.getResults}>
+            <Row className="form-row">
+              <Col md={10}>
+                <Input
+                  type="text"
+                  id="input"
+                  placeholder="Enter 3 keywords and we'll get you a movie : )"
+                  defaultValue={text}
+                  onChange={this.handleChange}
                 />
-              ))}
-          </div>
-        )}
+              </Col>
+              <Col md={2}>
+                <Button
+                  color="primary"
+                  variant="raised"
+                  type="submit"
+                  disabled={loading}
+                >
+                  Search
+                </Button>
+              </Col>
+            </Row>
+          </Form>
+          {loading ? (
+            <Spinner />
+          ) : (
+            <Row>
+              {data &&
+                data.map((movie, index) => (
+                  <Col key={movie.id}>
+                    <Movie
+                      index={index + 1}
+                      title={movie.title}
+                      year={movie.year}
+                      page_id={movie.page_id}
+                    />
+                  </Col>
+                ))}
+            </Row>
+          )}
 
-        <Alert stack={{ limit: 3 }} />
+          <Alert stack={{ limit: 3 }} />
+        </Container>
       </div>
     );
   }

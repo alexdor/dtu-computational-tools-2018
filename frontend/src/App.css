@@ -8,28 +8,36 @@
   font-size: calc(10px + 1.4vmin);
   color: gray;
 }
-
+.movie-panel{
+  cursor: pointer;
+}
 form{
   width: 100%;
   max-width: 80vw;
 }
 
-fieldset{
+a:hover,.movie:hover {
+   text-decoration: none;
+   color: #1976D2;
+}
+
+.form-row {
   width: 100%;
+  min-width: 430px;
 }
 
 input {
-  width: calc(100% - 44px);
-  max-width: 600px;
-  margin-right: 1em;
   height: 100%;
   line-height: inherit;
+  margin-right: .2em;
 }
+
 
 .movie{
   display: flex;
   align-items: center;
 }
+
 .movie_content{
   margin-left: 1.5em;
   display: flex;
@@ -37,7 +45,24 @@ input {
   align-items: flex-start;
 }
 
-button.button{
-  line-height: inherit;
-  margin-bottom: 0;
+.right{
+ display: inline-block;
+  width: 4em;
+  height: 4em;
+}
+.right-parent{
+  margin-left: auto;
+}
+.right:after {
+  content: '';
+	display: inline-block;
+  margin-top: 1.05em;
+  margin-left: -0.6em;
+  width: 1.4em;
+  height: 1.4em;
+  border-top: 0.2em solid rgba(0,0,0,.38);
+  border-right: 0.2em solid rgba(0,0,0,.38);
+  -moz-transform: rotate(45deg);
+  -webkit-transform: rotate(45deg);
+  transform: rotate(45deg);
 }

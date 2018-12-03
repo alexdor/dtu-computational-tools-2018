@@ -1,5 +1,5 @@
 import './index.css';
-import 'milligram';
+import 'muicss/dist/css/mui.min.css';
 import 'normalize.css';
 
 import React from 'react';
