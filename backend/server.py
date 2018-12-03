@@ -9,6 +9,7 @@ from timeit import default_timer as timer
 
 import aiohttp
 import click
+import aiohttp_cors
 import gensim
 import requests
 from aiocache import SimpleMemoryCache, cached
@@ -129,15 +130,23 @@ class API(object):
                 if movie in word_dict.get(word, []):
                     original_syn_count += 1
             movie_scores[movie] = (
-                math.log(movie_scores[movie][0] + 0.00001, 1.5)
-                + math.log(movie_scores[movie][1] + 0.00001, 1.5)
-                + math.log(movie_scores[movie][2] + 0.00001, 1.5)
+                math.log(movie_scores[movie][0] + 1, 1.5)
+                + math.log(movie_scores[movie][1] + 1, 1.5)
+                + math.log(movie_scores[movie][2] + 1, 1.5)
                 + 5 * original_syn_count
             )
 
         movies = sorted(movie_scores, key=lambda k: movie_scores[k], reverse=True)[:10]
-        q = self.session.query(MovieModel).filter(MovieModel.id.in_(movies))
-        movie_map = {movie.id: movie.title for movie in q}
+        q = self.session.query(MovieModel).filter(MovieModel.id.in_(movies)).limit(10)
+        movie_map = {
+            movie.id: {
+                "id": movie.id,
+                "title": movie.title,
+                "year": movie.year,
+                "page_id": movie.page_id,
+            }
+            for movie in q
+        }
         res = [movie_map[int(id)] for id in movies]
         asyncio.ensure_future(self.cache.set(req_id, res))
         return res
@@ -145,9 +154,26 @@ class API(object):
     async def handle_command_line_execution(self, words):
         res = await self.get_synonyms(words)
         print("Based on your inputs, we recommend the following:", "\n")
-        [print(movie) for movie in res]
+        [print(movie["title"]) for movie in res]
 
-    async def handle_request(self, request):
+    async def movies(self, request):
+        try:
+            words = request.rel_url.query["words"]
+            return web.json_response(
+                {
+                    "results": [
+                        movie["title"]
+                        for movie in await self.get_synonyms(words.split(","))
+                    ]
+                }
+            )
+        except KeyError:
+            return web.json_response(
+                {"error": "Please provide some tags to be used in the movie selection"},
+                status=400,
+            )
+
+    async def movies_detailed(self, request):
         try:
             words = request.rel_url.query["words"]
             return web.json_response(
@@ -181,7 +207,24 @@ def main(words):
         # print(end - start)
     else:
         app = web.Application()
-        app.add_routes([web.get("/", api.handle_request)])
+        app.add_routes(
+            [
+                web.get("/", api.movies),
+                web.get("/api/v1/detailed_movies/", api.movies_detailed),
+            ]
+        )
+        # Configure default CORS settings.
+        cors = aiohttp_cors.setup(app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_headers="*",
+                )
+        })
+
+        # Configure CORS on all routes.
+        for route in list(app.router.routes()):
+            cors.add(route)
         web.run_app(app)
 
 

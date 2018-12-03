@@ -9,3 +9,4 @@ BitVector==3.4.8
 aiocache==0.10.1
 ujson==1.35
 msgpack==0.5.6
+aiohttp_cors==0.7.0
