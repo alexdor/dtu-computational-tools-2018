@@ -86,6 +86,7 @@ class App extends PureComponent {
             {data &&
               data.map((movie, index) => (
                 <Movie
+                  key={movie.id}
                   index={index + 1}
                   title={movie.title}
                   year={movie.year}
