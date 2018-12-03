@@ -1,0 +1,5 @@
+.git/
+backend/parser.sqlite3
+frontend/
+.gitattributes
+.gitignore
