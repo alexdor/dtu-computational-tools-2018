@@ -40,14 +40,21 @@ class App extends PureComponent {
       return;
     }
     const tmp = text.split(" ");
-    if (tmp.length > 3) {
+    const data = [];
+    tmp.forEach(el => {
+      if (!el) {
+        return;
+      }
+      data.push(el.toLowerCase());
+    });
+    if (data.length > 3) {
       showError("Please enter up to 3 tags");
       return;
     }
     this.setState({ loading: true });
 
     fetch(
-      `https://whichflick-api.swaco.io/api/v1/detailed_movies/?words=${tmp.join(
+      `https://whichflick-api.swaco.io/api/v1/detailed_movies/?words=${data.join(
         ","
       )}`
     )
@@ -77,7 +84,7 @@ class App extends PureComponent {
           <h1>Which Flick</h1>
           <Form onSubmit={this.getResults}>
             <Row className="form-row">
-              <Col md={10}>
+              <Col md={9} sm={12}>
                 <Input
                   type="text"
                   id="input"
@@ -86,7 +93,7 @@ class App extends PureComponent {
                   onChange={this.handleChange}
                 />
               </Col>
-              <Col md={2}>
+              <Col md={3} sm={12}>
                 <Button
                   color="primary"
                   variant="raised"
@@ -101,19 +108,18 @@ class App extends PureComponent {
           {loading ? (
             <Spinner />
           ) : (
-            <Row>
+            <Col sm={12}>
               {data &&
                 data.map((movie, index) => (
-                  <Col key={movie.id}>
-                    <Movie
-                      index={index + 1}
-                      title={movie.title}
-                      year={movie.year}
-                      page_id={movie.page_id}
-                    />
-                  </Col>
+                  <Movie
+                    key={movie.id}
+                    index={index + 1}
+                    title={movie.title}
+                    year={movie.year}
+                    page_id={movie.page_id}
+                  />
                 ))}
-            </Row>
+            </Col>
           )}
 
           <Alert stack={{ limit: 3 }} />

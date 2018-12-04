@@ -23,15 +23,31 @@ a:hover,.movie:hover {
 
 .form-row {
   width: 100%;
-  min-width: 430px;
+  min-width: 388px;
+  max-width: 80vw;
+  margin: auto;
 }
 
 input {
   height: 100%;
   line-height: inherit;
-  margin-right: .2em;
+  max-width: 90vw;
 }
+button.mui-btn--primary {
+  margin-bottom: 12px;
+}
+@media only screen and (min-width: 768px) {
+  input{
+    margin-right: .2em;
+    max-width: 600px;
+  }
 
+  .form-row {
+    min-width: 500px;
+  display: flex;
+  align-items: center;
+}
+}
 
 .movie{
   display: flex;
