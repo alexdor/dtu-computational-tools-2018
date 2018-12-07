@@ -1,7 +1,8 @@
-from KeyWordBloomFilter import KeyWordBloomFilter
 import sqlite3
 
-conn = sqlite3.connect("parser.sqlite3")
+from KeyWordBloomFilter import KeyWordBloomFilter
+
+conn = sqlite3.connect("parser_prod.sqlite3")
 c = conn.cursor()
 
 c.execute("Select word from word_movies")
@@ -11,4 +12,3 @@ for word in wordlist:
     bloomFilter.train(word)
 
 bloomFilter.write_to_file("BloomFilterBitVector")
-
