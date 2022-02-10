@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "muicss": "^0.9.41",
-    "node-sass": "^4.10.0",
+    "node-sass": "^7.0.0",
     "normalize.css": "^8.0.1",
     "react": "^16.6.3",
     "react-dom": "^16.6.3",
