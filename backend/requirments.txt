@@ -1,5 +1,5 @@
 SQLalchemy==1.2.14
-aiohttp==3.4.3
+aiohttp==3.8.1
 asyncio==3.4.3
 aiodns==1.1.1
 sqlalchemy-aio==0.14.0
